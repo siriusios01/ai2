@@ -260,7 +260,25 @@
         </div>
     </main>
 
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <script>
+        // CẤU HÌNH THÔNG SỐ TRẠM KẾT NỐI ĐÁM MÂY FIREBASE CHÍNH XÁC CỦA BẠN
+        const firebaseConfig = {
+            apiKey: "AIzaSyAn-3UVGjlyeteF31iSlWGjJPhrQcoEBMg",
+            authDomain: "ai22-b4a97.firebaseapp.com",
+            databaseURL: "https://ai22-b4a97-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ai22-b4a97",
+            storageBucket: "ai22-b4a97.firebasestorage.app",
+            messagingSenderId: "902726392514",
+            appId: "1:902726392514:web:d2ce311673faa93455395b"
+        };
+        
+        // Khởi tạo tiến trình Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         // Đồng bộ và thông báo mượt mà thay thế alert() thô ráp của trình duyệt
         function showNotification(title, message, isSuccess = true) {
             if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showPopup) {
@@ -274,11 +292,12 @@
                 const tIcon = document.getElementById('toast-icon');
                 const tMsg = document.getElementById('toast-msg');
                 
-                tIcon.className = isSuccess ? "fa-solid fa-circle-check text-emerald-400" : "fa-solid fa-triangle-exclamation text-rose-500";
-                tMsg.innerText = message;
-                
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
+                if (toast && tIcon && tMsg) {
+                    tIcon.className = isSuccess ? "fa-solid fa-circle-check text-emerald-400" : "fa-solid fa-triangle-exclamation text-rose-500";
+                    tMsg.innerText = message;
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 3000);
+                }
             }
         }
 
@@ -287,7 +306,7 @@
             return Array.from({length: count}, (_, i) => `${name.toLowerCase().replace(/ /g, '_')}_data${i+1}|pass1234`);
         }
 
-        // Danh sách sản phẩm được nạp sẵn y hệt ảnh chụp màn hình của bạn
+        // Danh sách sản phẩm mặc định làm nền tảng khởi tạo nếu Cloud trống
         const defaultProducts = [
             { id: 1001, name: "CLAUDE PRO TEAM BHF", logo: "", desc: "Tài khoản mở full tính năng bảo hành đổi mới nếu lỗi.", price: 300000, accounts: makeDummyAccs(6, "CLAUDE PRO") },
             { id: 1002, name: "CURSOR PRO EDU 1 NĂM BH 6 THÁNG", logo: "", desc: "Gói gia hạn học tập Cursor thời hạn 1 năm bảo hành 6 tháng.", price: 500000, accounts: makeDummyAccs(8, "CURSOR PRO") },
@@ -302,23 +321,79 @@
             { code: "SIRIUS", discount: 50 }
         ];
 
-        // Sử dụng mã khóa v9 để tránh xung đột với dữ liệu lưu trữ cũ của trình duyệt
-        let products = JSON.parse(localStorage.getItem('sys_v9_products')) || defaultProducts;
-        let coupons = JSON.parse(localStorage.getItem('sys_v9_coupons')) || defaultCoupons;
-        let ordersHistory = JSON.parse(localStorage.getItem('sys_v9_history')) || [];
-        let currentUser = JSON.parse(localStorage.getItem('sys_v9_current_user')) || null;
-        let teleConfig = JSON.parse(localStorage.getItem('sys_v9_tele_config')) || { token: '', chatId: '' };
-        let minDepositLimit = parseInt(localStorage.getItem('sys_v9_min_deposit')) || 100000;
-        let depositTickets = JSON.parse(localStorage.getItem('sys_v9_deposit_tickets')) || [];
-        
-        let usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db')) || {
+        const defaultUsers = {
             "siriusff23": { password: "siriusff2322", balance: 9999999, role: "admin" },
             "ctv1": { password: "123", balance: 50000, role: "ctv" }
         };
-        localStorage.setItem('sys_v9_users_db', JSON.stringify(usersDB));
 
+        // Các biến dữ liệu động được lắng nghe liên tục từ Database
+        let products = [];
+        let coupons = [];
+        let ordersHistory = [];
+        let usersDB = {};
+        let depositTickets = [];
+        let teleConfig = { token: '', chatId: '' };
+        let minDepositLimit = 100000;
+
+        // Phiên đăng nhập riêng biệt lưu cục bộ trên thiết bị của mỗi khách hàng
+        let currentUser = JSON.parse(localStorage.getItem('sys_v9_current_user')) || null;
         let currentCheckoutItem = null;
         let activeTempDepositAmount = 0;
+
+        // KÍCH HOẠT LẮNG NGHE ĐỒNG BỘ DỮ LIỆU THỜI GIAN THỰC (REAL-TIME CHẠY LIÊN TỤC)
+        function startFirebaseSync() {
+            // 1. Đồng bộ danh sách sản phẩm dịch vụ
+            db.ref('shop_v9/products').on('value', (snapshot) => {
+                if (snapshot.exists()) { products = snapshot.val(); } 
+                else { products = defaultProducts; db.ref('shop_v9/products').set(defaultProducts); }
+                renderShopProducts();
+                if (document.getElementById('view-admin').classList.contains('active')) renderAdminProducts();
+            });
+
+            // 2. Đồng bộ danh sách mã giảm giá Coupon
+            db.ref('shop_v9/coupons').on('value', (snapshot) => {
+                if (snapshot.exists()) { coupons = snapshot.val(); } 
+                else { coupons = defaultCoupons; db.ref('shop_v9/coupons').set(defaultCoupons); }
+                if (document.getElementById('view-admin').classList.contains('active')) renderAdminCoupons();
+            });
+
+            // 3. Đồng bộ cơ sở dữ liệu thành viên, phân quyền & số dư tài khoản
+            db.ref('shop_v9/usersDB').on('value', (snapshot) => {
+                if (snapshot.exists()) { 
+                    usersDB = snapshot.val(); 
+                    if(currentUser && usersDB[currentUser.username]) {
+                        currentUser.balance = usersDB[currentUser.username].balance;
+                        currentUser.role = usersDB[currentUser.username].role;
+                        localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
+                        initSession();
+                    }
+                } else { usersDB = defaultUsers; db.ref('shop_v9/usersDB').set(defaultUsers); }
+                if (document.getElementById('view-admin').classList.contains('active')) renderAdminUsers();
+            });
+
+            // 4. Đồng bộ hóa lịch sử mua hàng toàn hệ thống
+            db.ref('shop_v9/ordersHistory').on('value', (snapshot) => {
+                ordersHistory = snapshot.exists() ? snapshot.val() : [];
+                renderOrdersHistory();
+            });
+
+            // 5. Đồng bộ hóa hóa đơn nạp tiền đang chờ duyệt
+            db.ref('shop_v9/depositTickets').on('value', (snapshot) => {
+                depositTickets = snapshot.exists() ? snapshot.val() : [];
+                if (document.getElementById('view-admin').classList.contains('active')) renderAdminDepositTickets();
+            });
+
+            // 6. Đồng bộ cấu hình hạn mức & API thông báo Telegram
+            db.ref('shop_v9/systemConfig').on('value', (snapshot) => {
+                if(snapshot.exists()) {
+                    const config = snapshot.val();
+                    minDepositLimit = config.minDepositLimit || 100000;
+                    teleConfig = config.teleConfig || { token: '', chatId: '' };
+                } else {
+                    db.ref('shop_v9/systemConfig').set({ minDepositLimit: 100000, teleConfig: { token: '', chatId: '' } });
+                }
+            });
+        }
 
         // Xử lý sự kiện lắng nghe khi Admin chọn tệp tin hình ảnh làm logo sản phẩm mới
         document.addEventListener('DOMContentLoaded', () => {
@@ -327,8 +402,8 @@
                 logoFileInput.addEventListener('change', function(e) {
                     const file = e.target.files[0];
                     if (file) {
-                        if (file.size > 2 * 1024 * 1024) { // Giới hạn ảnh dưới 2MB để tránh làm tràn bộ nhớ LocalStorage
-                            showNotification("Lỗi tệp", "Vui lòng chọn ảnh có kích thước dưới 2MB!", false);
+                        if (file.size > 1.5 * 1024 * 1024) { 
+                            showNotification("Lỗi tệp", "Vui lòng chọn ảnh dưới 1.5MB để tối ưu dung lượng lưu trữ đám mây!", false);
                             this.value = "";
                             return;
                         }
@@ -386,23 +461,27 @@
                 showNotification("Lỗi", "Vui lòng điền đầy đủ tên tài khoản và mật khẩu!", false);
                 return;
             }
-            usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db'));
             if(usersDB[user]) {
-                showNotification("Thất bại", "Tài khoản này đã tồn tại trên hệ thống!", false);
+                showNotification("Thất bại", "Tên tài khoản này đã có người đăng ký trên đám mây!", false);
                 return;
             }
-            usersDB[user] = { password: pass, balance: 0, role: "user" };
-            localStorage.setItem('sys_v9_users_db', JSON.stringify(usersDB));
-            showNotification("Thành công", "Đăng ký tài khoản mới thành công!", true);
-            toggleAuthTab('login');
+            
+            db.ref('shop_v9/usersDB/' + user).set({
+                password: pass,
+                balance: 0,
+                role: "user"
+            }).then(() => {
+                showNotification("Thành công", "Đăng ký thành công! Hãy chuyển sang tab Đăng nhập.", true);
+                toggleAuthTab('login');
+            });
         }
 
         function handleLogin() {
             const user = document.getElementById('login-user').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
-            usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db'));
+            
             if(!usersDB[user] || usersDB[user].password !== pass) {
-                showNotification("Lỗi đăng nhập", "Sai tài khoản hoặc mật khẩu, vui lòng thử lại!", false);
+                showNotification("Lỗi đăng nhập", "Sai thông tin tài khoản hoặc mật khẩu!", false);
                 return;
             }
 
@@ -461,24 +540,25 @@
             };
 
             depositTickets.unshift(newTicket);
-            localStorage.setItem('sys_v9_deposit_tickets', JSON.stringify(depositTickets));
-
-            sendTelegramNotification(`🔔 <b>YÊU CẦU DUYỆT NẠP TIỀN</b>\n• Tài khoản: <code>${newTicket.username}</code>\n• Số tiền nạp: <b>${newTicket.amount.toLocaleString('vi-VN')}đ</b>\n• Mã giao dịch: <code>${newTicket.ticketId}</code>\n<i>Vui lòng vào Admin quản trị để xử lý duyệt.</i>`);
-            showNotification("Đã gửi yêu cầu", `🚀 Đã gửi yêu cầu nạp tiền thành công! Mã giao dịch: [${ticketId}].`, true);
-            activeTempDepositAmount = 0;
-            document.getElementById('qr-result-box').classList.add('hidden');
-            navigateTo('shop');
+            
+            db.ref('shop_v9/depositTickets').set(depositTickets).then(() => {
+                sendTelegramNotification(`🔔 <b>YÊU CẦU DUYỆT NẠP TIỀN</b>\n• Tài khoản: <code>${newTicket.username}</code>\n• Số tiền nạp: <b>${newTicket.amount.toLocaleString('vi-VN')}đ</b>\n• Mã giao dịch: <code>${newTicket.ticketId}</code>\n<i>Vui lòng vào Admin quản trị để xử lý duyệt.</i>`);
+                showNotification("Đã gửi yêu cầu", `🚀 Yêu cầu nạp tiền mã [${ticketId}] đã gửi lên hệ thống quản trị!`, true);
+                activeTempDepositAmount = 0;
+                document.getElementById('qr-result-box').classList.add('hidden');
+                navigateTo('shop');
+            });
         }
 
         function renderShopProducts() {
             const container = document.getElementById('product-container');
+            if(!container) return;
             container.innerHTML = '';
             products.forEach(p => {
                 const stockCount = p.accounts ? p.accounts.length : 0;
                 const isOut = stockCount <= 0;
                 let finalPrice = currentUser && currentUser.role === 'ctv' ? p.price * 0.9 : p.price;
                 
-                // Nếu sản phẩm không có logo tự tải lên, hệ thống lấy ảnh mặc định nghệ thuật từ unsplash
                 const logoSrc = p.logo && p.logo.trim() !== "" ? p.logo : "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100";
 
                 const div = document.createElement('div');
@@ -490,12 +570,12 @@
                         </div>
                         <div>
                             <h3 class="font-bold text-white text-sm">${p.name}</h3>
-                            <span class="text-[11px] px-2 py-0.5 rounded mt-1 inline-block ${isOut?'bg-rose-500/10 text-rose-400':'bg-emerald-500/10 text-emerald-400'}">Còn lại: ${stockCount} Acc</span>
+                            <span class="text-[11px] px-2 py-0.5 rounded mt-1 inline-block ${isOut ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}">Còn lại: ${stockCount} Acc</span>
                         </div>
                     </div>
                     <div class="text-right">
                         <p class="text-emerald-400 font-bold text-base">${finalPrice.toLocaleString('vi-VN')}đ</p>
-                        <button onclick="openCheckoutPage(${p.id})" ${isOut?'disabled':''} class="mt-2 text-xs px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold">Mua</button>
+                        <button onclick="openCheckoutPage(${p.id})" ${isOut?'disabled':''} class="mt-2 text-xs px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold disabled:bg-slate-700 disabled:text-slate-400">Mua</button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -525,6 +605,7 @@
 
         function updateCheckoutUI() {
             const detailZone = document.getElementById('checkout-details');
+            if(!detailZone) return;
             const originCost = currentCheckoutItem.currentPrice * currentCheckoutItem.quantity;
             const discountAmount = originCost * (currentCheckoutItem.discountPercent / 100);
             const totalCost = originCost - discountAmount;
@@ -627,12 +708,11 @@
                 return;
             }
 
+            // Xuất tài khoản ra khỏi cụm dữ liệu đám mây
             const deliveredAccounts = products[pIndex].accounts.splice(0, currentCheckoutItem.quantity);
-
             currentUser.balance -= finalCost;
-            usersDB[currentUser.username].balance = currentUser.balance;
 
-            ordersHistory.unshift({
+            const newOrder = {
                 orderId: "DH" + Math.floor(100000 + Math.random() * 900000),
                 username: currentUser.username,
                 productName: currentCheckoutItem.name,
@@ -640,20 +720,26 @@
                 totalCost: finalCost,
                 dataAccs: deliveredAccounts.join(" || "),
                 dateStr: new Date().toLocaleString('vi-VN')
+            };
+            ordersHistory.unshift(newOrder);
+
+            // Tiến hành cập nhật đồng loạt đa luồng (Multi-path Updates) lên Firebase Database
+            const updates = {};
+            updates['shop_v9/products'] = products;
+            updates['shop_v9/usersDB/' + currentUser.username + '/balance'] = currentUser.balance;
+            updates['shop_v9/ordersHistory'] = ordersHistory;
+
+            db.ref().update(updates).then(() => {
+                localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
+                initSession();
+                showNotification("Mua thành công", `🎉 Giao dịch thành công! Bạn vừa mua thành công ${currentCheckoutItem.quantity} tài khoản.`, true);
+                navigateTo('history');
             });
-
-            localStorage.setItem('sys_v9_products', JSON.stringify(products));
-            localStorage.setItem('sys_v9_users_db', JSON.stringify(usersDB));
-            localStorage.setItem('sys_v9_history', JSON.stringify(ordersHistory));
-            localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
-
-            initSession();
-            showNotification("Mua thành công", `🎉 Giao dịch thành công! Bạn vừa mua thành công ${currentCheckoutItem.quantity} tài khoản.`, true);
-            navigateTo('history');
         }
 
         function renderOrdersHistory() {
             const tbody = document.getElementById('history-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             const myOrders = ordersHistory.filter(o => currentUser.role === 'admin' || o.username === currentUser.username);
             myOrders.forEach(o => {
@@ -686,12 +772,13 @@
 
         function renderAdminDepositTickets() {
             const tbody = document.getElementById('admin-deposit-ticket-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             if (depositTickets.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500">Không có yêu cầu nạp tiền nào đang chờ xử lý.</td></tr>`;
                 return;
             }
-            depositTickets.forEach((t, idx) => {
+            depositTickets.forEach((t, index) => {
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-slate-800 text-slate-300 hover:bg-slate-800/20";
                 tr.innerHTML = `
@@ -701,8 +788,8 @@
                     <td class="font-mono text-slate-400">${t.comment}</td>
                     <td class="text-slate-500 text-xs">${t.dateStr}</td>
                     <td class="text-right space-x-1">
-                        <button onclick="adminApproveDeposit(${idx}, true)" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-2 py-1 rounded text-[11px]">✔ Duyệt</button>
-                        <button onclick="adminApproveDeposit(${idx}, false)" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 px-2 py-1 rounded text-[11px]">Hủy</button>
+                        <button onclick="adminApproveDeposit(${index}, true)" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-2 py-1 rounded text-[11px]">✔ Duyệt</button>
+                        <button onclick="adminApproveDeposit(${index}, false)" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 px-2 py-1 rounded text-[11px]">Hủy</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -710,25 +797,32 @@
         }
 
         function adminApproveDeposit(index, isApproved) {
-            usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db'));
             const ticket = depositTickets[index];
             if (isApproved) {
+                if(!usersDB[ticket.username]) usersDB[ticket.username] = { password: "123", balance: 0, role: "user" };
                 usersDB[ticket.username].balance += ticket.amount;
-                localStorage.setItem('sys_v9_users_db', JSON.stringify(usersDB));
-                if (currentUser.username === ticket.username) {
-                    currentUser.balance = usersDB[ticket.username].balance;
-                    localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
-                    initSession();
-                }
-                sendTelegramNotification(`✅ Đã duyệt +${ticket.amount.toLocaleString('vi-VN')}đ cho ${ticket.username}`);
+                
+                const updates = {};
+                updates['shop_v9/usersDB/' + ticket.username + '/balance'] = usersDB[ticket.username].balance;
+                
+                depositTickets.splice(index, 1);
+                updates['shop_v9/depositTickets'] = depositTickets;
+
+                db.ref().update(updates).then(() => {
+                    sendTelegramNotification(`✅ Đã duyệt nạp +${ticket.amount.toLocaleString('vi-VN')}đ cho thành viên: ${ticket.username}`);
+                    showNotification("Thành công", "Đã phê duyệt hóa đơn và cộng tiền online trực tiếp thành công!", true);
+                });
+            } else {
+                depositTickets.splice(index, 1);
+                db.ref('shop_v9/depositTickets').set(depositTickets).then(() => {
+                    showNotification("Hệ thống", "Đã hủy bỏ phiếu yêu cầu nạp tiền.", false);
+                });
             }
-            depositTickets.splice(index, 1);
-            localStorage.setItem('sys_v9_deposit_tickets', JSON.stringify(depositTickets));
-            renderAdminDepositTickets();
         }
 
         function renderAdminProducts() {
             const tbody = document.getElementById('admin-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             products.forEach(p => {
                 const tr = document.createElement('tr');
@@ -743,7 +837,7 @@
             const desc = document.getElementById('admin-p-desc').value.trim();
             const price = parseInt(document.getElementById('admin-p-price').value);
             const textAcc = document.getElementById('admin-p-accounts').value.trim();
-            const base64Logo = document.getElementById('admin-p-logo-base64').value; // Lấy dữ liệu ảnh Base64 đã lưu tạm
+            const base64Logo = document.getElementById('admin-p-logo-base64').value;
 
             if(!name || isNaN(price)) {
                 showNotification("Lỗi dữ liệu", "Vui lòng nhập đầy đủ tên và giá sản phẩm hợp lệ!", false);
@@ -755,36 +849,32 @@
             products.push({ 
                 id: Date.now(), 
                 name: name, 
-                logo: base64Logo, // Đưa dữ liệu ảnh tệp đã tải vào đối tượng sản phẩm
+                logo: base64Logo, 
                 desc: desc, 
                 price: price, 
                 accounts: arrAccs 
             });
             
-            localStorage.setItem('sys_v9_products', JSON.stringify(products));
-            
-            // Đặt lại các trường nhập liệu về trạng thái trống sau khi đăng sản phẩm thành công
-            document.getElementById('admin-p-name').value = '';
-            document.getElementById('admin-p-desc').value = '';
-            document.getElementById('admin-p-price').value = '';
-            document.getElementById('admin-p-accounts').value = '';
-            document.getElementById('admin-p-logo-file').value = '';
-            document.getElementById('admin-p-logo-base64').value = '';
-
-            renderAdminProducts();
-            showNotification("Thành công", "Đã thêm mới và đăng bán sản phẩm thành công!", true);
+            db.ref('shop_v9/products').set(products).then(() => {
+                document.getElementById('admin-p-name').value = '';
+                document.getElementById('admin-p-desc').value = '';
+                document.getElementById('admin-p-price').value = '';
+                document.getElementById('admin-p-accounts').value = '';
+                document.getElementById('admin-p-logo-file').value = '';
+                document.getElementById('admin-p-logo-base64').value = '';
+                showNotification("Thành công", "Đã đưa sản phẩm lên dữ liệu đám mây, toàn bộ khách hàng sẽ thấy ngay lập tức!", true);
+            });
         }
 
         function adminDeleteProduct(id) {
             products = products.filter(p => p.id !== id);
-            localStorage.setItem('sys_v9_products', JSON.stringify(products));
-            renderAdminProducts();
+            db.ref('shop_v9/products').set(products);
         }
 
         function renderAdminUsers() {
             const tbody = document.getElementById('admin-user-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
-            usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db'));
             Object.keys(usersDB).forEach(username => {
                 const u = usersDB[username];
                 const tr = document.createElement('tr');
@@ -794,33 +884,37 @@
         }
 
         function adminAdjustUser(username, action) {
-            usersDB = JSON.parse(localStorage.getItem('sys_v9_users_db'));
             if(action === 'balance') {
-                const amt = parseInt(prompt("Nhập số tiền thay đổi (âm để trừ):"));
-                if(!isNaN(amt)) usersDB[username].balance += amt;
+                const amt = parseInt(prompt("Nhập số tiền thay đổi (Sử dụng dấu trừ để trừ số dư):"));
+                if(!isNaN(amt)) {
+                    usersDB[username].balance += amt;
+                    db.ref('shop_v9/usersDB/' + username + '/balance').set(usersDB[username].balance);
+                }
             } else {
-                const r = prompt("Quyền (user/ctv/admin):").toLowerCase();
-                if(['user','ctv','admin'].includes(r)) usersDB[username].role = r;
+                const r = prompt("Nhập phân quyền thiết lập mới (user / ctv / admin):").toLowerCase();
+                if(['user','ctv','admin'].includes(r)) {
+                    usersDB[username].role = r;
+                    db.ref('shop_v9/usersDB/' + username + '/role').set(r);
+                }
             }
-            localStorage.setItem('sys_v9_users_db', JSON.stringify(usersDB));
-            renderAdminUsers();
         }
 
         function renderAdminCoupons() {
             const tbody = document.getElementById('admin-coupon-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             if (coupons.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" class="text-center py-3 text-slate-500">Chưa phát hành coupon nào.</td></tr>`;
                 return;
             }
-            coupons.forEach((c, idx) => {
+            coupons.forEach((c, index) => {
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-slate-800 text-xs";
                 tr.innerHTML = `
                     <td class="py-2 font-bold text-amber-400 uppercase">${c.code}</td>
                     <td class="text-emerald-400 font-bold">Giảm ${c.discount}%</td>
                     <td class="text-right">
-                        <button onclick="adminDeleteCoupon(${idx})" class="text-rose-400 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
+                        <button onclick="adminDeleteCoupon(${index})" class="text-rose-400 hover:text-rose-500"><i class="fa-solid fa-trash-can"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -842,18 +936,16 @@
             }
             
             coupons.push({ code, discount });
-            localStorage.setItem('sys_v9_coupons', JSON.stringify(coupons));
-            
-            document.getElementById('admin-c-code').value = '';
-            document.getElementById('admin-c-discount').value = '';
-            renderAdminCoupons();
-            showNotification("Phát hành thành công", `Phát hành mã giảm giá [${code}] giảm ${discount}% thành công!`, true);
+            db.ref('shop_v9/coupons').set(coupons).then(() => {
+                document.getElementById('admin-c-code').value = '';
+                document.getElementById('admin-c-discount').value = '';
+                showNotification("Phát hành thành công", `Phát hành mã giảm giá [${code}] giảm ${discount}% thành công!`, true);
+            });
         }
 
         function adminDeleteCoupon(index) {
             coupons.splice(index, 1);
-            localStorage.setItem('sys_v9_coupons', JSON.stringify(coupons));
-            renderAdminCoupons();
+            db.ref('shop_v9/coupons').set(coupons);
         }
 
         function saveSystemConfigAll() {
@@ -862,21 +954,34 @@
                 showNotification("Lỗi", "Hạn mức tiền nạp tối thiểu không hợp lệ!", false);
                 return;
             }
-            minDepositLimit = newMinInput;
-            localStorage.setItem('sys_v9_min_deposit', minDepositLimit.toString());
+            
+            const tokenInput = document.getElementById('tele-token').value.trim();
+            const chatIdInput = document.getElementById('tele-chatid').value.trim();
 
-            teleConfig.token = document.getElementById('tele-token').value.trim();
-            teleConfig.chatId = document.getElementById('tele-chatid').value.trim();
-            localStorage.setItem('sys_v9_tele_config', JSON.stringify(teleConfig));
-            showNotification("Hệ thống", "Đã lưu toàn bộ cấu hình hệ thống và API Telegram thành công!", true);
+            db.ref('shop_v9/systemConfig').set({
+                minDepositLimit: newMinInput,
+                teleConfig: { token: tokenInput, chatId: chatIdInput }
+            }).then(() => {
+                showNotification("Hệ thống", "Đã lưu toàn bộ cấu hình hệ thống và API Telegram thành công!", true);
+            });
         }
 
+        // Tiến trình khởi tạo ứng dụng khi tải trang hoàn tất
         window.onload = function() {
             if (window.Telegram && window.Telegram.WebApp) {
                 window.Telegram.WebApp.ready();
                 window.Telegram.WebApp.expand(); 
             }
-            if (currentUser) { initSession(); navigateTo('shop'); } else { navigateTo('auth'); }
+            
+            // Kích hoạt cổng kết nối lắng nghe dữ liệu thời gian thực
+            startFirebaseSync();
+
+            if (currentUser) { 
+                initSession(); 
+                navigateTo('shop'); 
+            } else { 
+                navigateTo('auth'); 
+            }
         };
     </script>
 </body>
