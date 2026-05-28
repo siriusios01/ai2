@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Shop Auto Account - AI SHOP PRENIUM </title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0d19; 
+            color: #ffffff; 
+        }
+        .bg-dark-card { background-color: #121424; }
+        .text-purple-gradient { background: linear-gradient(90deg, #a855f7, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-purple-gradient { background: linear-gradient(90deg, #8b5cf6, #d946ef); }
+        .page-view { display: none; }
+        .page-view.active { display: block; }
+        .glass-panel {
+            background: rgba(18, 20, 36, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+        }
+        #custom-toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 1000;
+            transform: translateY(-100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+        #custom-toast.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090b13;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #7c3aed, #9333ea, #6d28d9);
+            border-radius: 999px;
+            border: 1px solid #111827;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #8b5cf6, #a855f7, #7e22ce);
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #7c3aed #090b13;
+        }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col antialiased">
+
+    <div id="custom-toast" class="glass-panel flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border border-purple-500/30">
+        <span id="toast-icon" class="text-lg"></span>
+        <p id="toast-msg" class="text-xs sm:text-sm font-semibold text-white"></p>
+    </div>
+
+    <nav class="bg-dark-card border-b border-gray-800/80 sticky top-0 z-40 shadow-xl">
+        <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="#" onclick="navigateTo('shop')" class="flex items-center gap-3 font-bold text-lg sm:text-xl tracking-wider text-white">
+                <div class="w-9 h-9 bg-purple-600 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg shadow-purple-500/20">AI</div>
+                <div>
+                    <h1 class="font-bold text-base tracking-wider text-purple-400">AIPREMIUM</h1>
+                    <p class="text-[10px] text-gray-400 font-normal">Uy tín - Tự động - Giá tốt</p>
+                </div>
+            </a>
+            
+            <div id="nav-user-zone" class="flex items-center gap-2 sm:gap-3">
+                <div id="user-logged-info" class="hidden flex items-center gap-2 sm:gap-3 text-xs sm:text-sm">
+                    <div class="text-right hidden md:block mr-2">
+                        <p class="text-sm font-bold text-white flex items-center justify-end gap-1" id="display-username">...</p>
+                        <p class="text-xs font-semibold text-purple-400">Ví: <span id="display-balance" class="text-white font-bold">0</span>đ | <span id="display-role" class="text-amber-400 uppercase">USER</span></p>
+                    </div>
+                    <button onclick="navigateTo('shop')" class="bg-[#1a1d36] hover:bg-purple-600/20 border border-gray-700/50 p-2.5 rounded-xl transition shadow" title="Cửa hàng"><i class="fa-solid fa-store text-purple-400"></i></button>
+                    <button onclick="navigateTo('history')" class="bg-[#1a1d36] hover:bg-purple-600/20 border border-gray-700/50 p-2.5 rounded-xl flex items-center gap-1.5 transition shadow" title="Lịch sử mua hàng"><i class="fa-solid fa-clock-rotate-left text-purple-400"></i><span class="hidden sm:inline font-medium text-gray-300">Lịch sử</span></button>
+                    <button onclick="navigateTo('deposit')" class="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 p-2.5 rounded-xl transition shadow" title="Nạp tiền"><i class="fa-solid fa-wallet"></i> <span class="hidden sm:inline font-medium ml-1">Nạp tiền</span></button>
+                    <button id="btn-admin-panel" onclick="navigateTo('admin')" class="hidden bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 p-2.5 rounded-xl font-bold transition shadow" title="Quản trị"><i class="fa-solid fa-user-shield"></i> <span class="hidden lg:inline ml-1" id="txt-admin-panel">Quản trị</span></button>
+                    <button onclick="logout()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 p-2.5 rounded-xl transition shadow" title="Đăng xuất"><i class="fa-solid fa-power-off"></i></button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="login-announcement-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden px-4">
+        <div class="glass-panel rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-purple-500/20">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-purple-500/10 text-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl border border-purple-500/20 shadow-lg shadow-purple-500/5">
+                    <i class="fa-solid fa-bell fa-bounce"></i>
+                </div>
+                <h3 class="text-base font-extrabold text-white mb-3 tracking-wide uppercase">📢 Thông báo từ hệ thống</h3>
+                <div class="text-xs text-slate-300 text-left bg-[#0f111e] border border-gray-800 p-4 rounded-2xl space-y-2.5 mb-5 max-h-60 overflow-y-auto font-medium leading-relaxed">
+                    <p class="text-purple-400 font-bold">Chào mừng bạn đã đến với Shop AI Premium!</p>
+                    <p class="flex gap-1.5"><span class="text-purple-400">•</span> <span>Hệ thống hỗ trợ chat trực tuyến trực tiếp và tự động phản hồi câu hỏi phổ biến nhanh 24/7 tại góc màn hình.</span></p>
+                    <p class="flex gap-1.5"><span class="text-purple-400">•</span> <span>Đã nâng cấp cơ chế chia sẻ doanh thu và cộng tiền tự động cho QTV khi có đơn hàng.</span></p>
+					<p class="flex gap-1.5"><span class="text-purple-400">•</span> <span>Mọi thắc mắc hoặc cần bảo hành vui lòng nhắn tin trực tiếp tại khung hỗ trợ hoặc Telegram Admin: @ziangktv</span></p> 
+                </div>
+                <button onclick="closeAnnouncementModal()" class="w-full btn-purple-gradient text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-purple-500/20">
+                    Đóng thông báo & Tiếp tục
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-grow max-w-[1440px] w-full mx-auto px-6 py-6">
+        <div class="grid grid-cols-12 gap-6">
+            
+            <aside id="layout-sidebar" class="col-span-12 lg:col-span-3 space-y-6 hidden">
+                <div class="bg-dark-card p-4 rounded-xl border border-gray-800">
+                    <button onclick="navigateTo('shop')" class="w-full btn-purple-gradient py-2.5 px-4 rounded-lg text-left font-semibold mb-4 flex justify-between items-center text-white text-sm shadow">
+                        <span><i class="fa-solid fa-house mr-2"></i> Trang chủ / Cửa hàng</span>
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                    <p class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2.5 px-1">Danh mục phím tắt</p>
+                    <ul class="space-y-1 text-gray-300 text-xs sm:text-sm">
+                        <li onclick="navigateTo('shop')" class="p-2.5 hover:bg-[#1a1d36] rounded-lg cursor-pointer flex items-center transition"><i class="fa-solid fa-cube w-6 text-purple-400"></i> Kho sản phẩm chính</li>
+                        <li onclick="navigateTo('history')" class="p-2.5 hover:bg-[#1a1d36] rounded-lg cursor-pointer flex items-center transition"><i class="fa-solid fa-receipt w-6 text-purple-400"></i> Lịch sử tài khoản mua</li>
+                        <li onclick="navigateTo('deposit')" class="p-2.5 hover:bg-[#1a1d36] rounded-lg cursor-pointer flex items-center transition"><i class="fa-solid fa-qrcode w-6 text-purple-400"></i> Nạp tiền số dư tự động</li>
+                    </ul>
+                </div>
+
+                <div class="bg-dark-card p-5 rounded-xl border border-gray-800 text-center relative overflow-hidden">
+                    <i class="fa-solid fa-headset text-4xl text-purple-500 mb-2"></i>
+                    <h3 class="font-bold text-sm tracking-wide">HỖ TRỢ TRỰC TUYẾN 24/7</h3>
+                    <p class="text-xs text-gray-400 my-2">Chúng tôi luôn ở đây để xử lý mọi thắc mắc của bạn</p>
+                    <button onclick="toggleCustomerChatWindow()" class="w-full bg-[#1a1d36] border border-purple-500/30 py-2 rounded-lg text-xs font-semibold hover:bg-purple-600 transition text-purple-300 hover:text-white">Liên hệ trợ giúp</button>
+                </div>
+            </aside>
+
+            <div id="layout-main-content" class="col-span-12">
+                
+                <div id="view-auth" class="page-view active max-w-md mx-auto mt-8 bg-dark-card rounded-2xl p-6 shadow-2xl border border-gray-800">
+                    <div class="text-center mb-6">
+                        <h2 class="text-xl font-black tracking-widest text-purple-400">AI SHOP PRENIUM </h2>
+                        <p class="text-xs text-gray-400 mt-1">Đăng nhập tài khoản để mua hàng </p>
+                    </div>
+                    <div class="flex justify-center gap-4 mb-6 border-b border-gray-800 pb-3">
+                        <button id="tab-login-btn" onclick="toggleAuthTab('login')" class="flex-1 font-bold text-center text-purple-400 border-b-2 border-purple-400 pb-2 transition text-sm">ĐĂNG NHẬP</button>
+                        <button id="tab-register-btn" onclick="toggleAuthTab('register')" class="flex-1 font-bold text-center text-slate-500 pb-2 transition text-sm">ĐĂNG KÝ</button>
+                    </div>
+                    <div id="form-login" class="space-y-4">
+                        <input type="text" id="login-user" placeholder="Tên tài khoản..." class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm transition">
+                        <input type="password" id="login-pass" placeholder="Mật khẩu..." class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm transition">
+                        <button onclick="handleLogin()" class="w-full btn-purple-gradient text-white font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-purple-500/20">Đăng Nhập Hệ Thống</button>
+                    </div>
+                    <div id="form-register" class="space-y-4 hidden">
+                        <input type="text" id="reg-user" placeholder="Tên tài khoản mới..." class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm transition">
+                        <input type="password" id="reg-pass" placeholder="Tạo mật khẩu an toàn..." class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-purple-500 text-sm transition">
+                        <button onclick="handleRegister()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-blue-500/20">Đăng Ký Tài Khoản</button>
+                    </div>
+                </div>
+
+                <div id="view-shop" class="page-view space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="md:col-span-2 bg-gradient-to-br from-[#1d123a] to-[#0d0e1e] p-6 rounded-xl border border-purple-900/40 flex justify-between items-center relative overflow-hidden h-[180px]">
+                            <div class="space-y-2.5 z-10">
+                                <span class="bg-purple-950/60 text-purple-300 text-[10px] font-bold px-2.5 py-1 rounded-full border border-purple-500/30 uppercase tracking-wider"><i class="fa-solid fa-star mr-1"></i> AUTOSHOP AI PRENIUM </span>
+                                <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight">Tài khoản chất lượng<br><span class="text-purple-400">Giá tốt mỗi ngày</span></h2>
+                                <p class="text-xs text-gray-400">Tự động – Bảo hành siêu tốc – Đổi trả tức thì</p>
+                            </div>
+                            <i class="fa-solid fa-bolt-lightning text-8xl text-purple-500/10 absolute right-8"></i>
+                        </div>
+
+                        <div class="md:col-span-1 bg-dark-card p-4 rounded-xl border border-gray-800 flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-center mb-2.5">
+                                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Dịch vụ thịnh hành</h3>
+                                    <span class="text-[10px] text-purple-400 font-semibold">Tự động</span>
+                                </div>
+                                <div class="space-y-2.5 text-xs" id="shop-top-trending">
+                                    <p class="text-gray-400 text-xs italic">Đang tải dữ liệu hot...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h2 class="text-sm font-bold uppercase tracking-widest text-gray-300 flex items-center mb-4">
+                            <span class="w-1.5 h-4 bg-purple-500 inline-block mr-2 rounded-sm"></span> Danh mục dịch vụ tài khoản công khai
+                        </h2>
+                        <div id="product-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                    </div>
+                </div>
+
+                <div id="view-checkout" class="page-view max-w-xl mx-auto bg-dark-card rounded-2xl p-6 shadow-2xl border border-gray-800">
+                    <button onclick="navigateTo('shop')" class="text-xs text-slate-400 hover:text-white mb-4 flex items-center gap-1.5 transition"><i class="fa-solid fa-arrow-left"></i> Quay lại cửa hàng</button>
+                    <h2 class="text-base font-bold text-white mb-4 border-b border-gray-800 pb-2 flex items-center gap-2"><i class="fa-solid fa-basket-shopping text-purple-400"></i> Xác Nhận Thanh Toán Đơn Hàng</h2>
+                    <div id="checkout-details" class="space-y-4 text-sm"></div>
+                </div>
+
+                <div id="view-history" class="page-view space-y-4">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Lịch sử giao dịch mua tài khoản</h2>
+                    <div class="bg-dark-card border border-gray-800 rounded-xl p-4 shadow-xl">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead>
+                                    <tr class="border-b border-gray-800 text-gray-400 font-semibold uppercase tracking-wider">
+                                        <th class="py-3 px-2">Mã Đơn</th>
+                                        <th class="py-3 px-2">Tên Sản Phẩm</th>
+                                        <th class="py-3 px-2">Số Lượng</th>
+                                        <th class="py-3 px-2">Tổng Tiền</th>
+                                        <th class="py-3 px-2">Thông Tin Tài Khoản Nhận</th>
+                                        <th class="py-3 px-2 text-right">Ngày Mua</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body" class="divide-y divide-gray-800/50"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-deposit" class="page-view">
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-wallet text-purple-400"></i> Nạp tiền ví số dư tự động qua QR</h2>
+                    <div class="bg-dark-card border border-gray-800 rounded-xl p-6 max-w-lg mx-auto text-xs space-y-4 shadow-xl">
+                        <div>
+                            <label class="block text-gray-400 text-[10px] font-bold uppercase mb-1.5 tracking-wider">Số tiền bạn muốn nạp (đ):</label>
+                            <input type="number" id="input-deposit" placeholder="Nhập số tiền..." class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-4 py-3 text-white font-bold text-base focus:outline-none focus:border-purple-500 transition">
+                            <p class="text-[11px] text-amber-400 mt-1.5 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> Hạn mức tối thiểu: <span id="deposit-min-notice" class="font-bold">0</span>đ</p>
+                        </div>
+                        <button onclick="generateDepositQR()" class="w-full btn-purple-gradient text-white font-bold py-3 rounded-xl transition shadow-lg shadow-purple-500/20 uppercase tracking-wider text-xs">Tạo Mã QR Nạp Tiền</button>
+                        
+                        <div id="qr-result-box" class="hidden border-t border-gray-800 pt-4 flex flex-col items-center space-y-3">
+                            <p class="text-center text-[11px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">⚠️ Vui lòng quét mã MoMo bên dưới đúng số tiền và nội dung!</p>
+                            <div class="bg-white p-3 rounded-xl shadow-2xl">
+                                <img id="qr-deposit-img" src="" alt="Mã QR MoMo" class="w-48 h-48 object-contain">
+                            </div>
+                            <div class="w-full bg-[#0b0d19] p-3 rounded-xl font-mono text-center border border-gray-800 space-y-1">
+                                <p class="text-gray-400 text-[11px]">Nội dung chuyển khoản bắt buộc:</p>
+                                <p class="text-purple-400 font-bold text-sm select-all cursor-pointer" id="qr-deposit-comment">...</p>
+                            </div>
+                            <button onclick="submitDepositTicketToAdmin()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider">
+                                <i class="fa-solid fa-paper-plane mr-1"></i> Tôi Đã Xác Nhận Chuyển Khoản Xong
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-admin" class="page-view space-y-4">
+                    <div class="flex flex-wrap gap-2 border-b border-gray-800 pb-2 text-xs font-bold uppercase tracking-wider">
+                        <button onclick="switchAdminTab('products')" id="admin-tab-p-btn" class="text-purple-400 border-b-2 border-purple-400 pb-2 px-3 transition">Kho Sản Phẩm</button>
+                        <button onclick="switchAdminTab('users')" id="admin-tab-u-btn" class="text-slate-500 pb-2 px-3 transition">Thành Viên</button>
+                        <button onclick="switchAdminTab('coupons')" id="admin-tab-c-btn" class="text-slate-500 pb-2 px-3 transition">Mã Giảm Giá</button>
+                        <button onclick="switchAdminTab('telegram')" id="admin-tab-t-btn" class="text-slate-500 pb-2 px-3 transition">Cấu Hình Hệ Thống</button>
+                        <button onclick="switchAdminTab('chats')" id="admin-tab-ch-btn" class="text-slate-500 pb-2 px-3 transition flex items-center gap-1.5">Hộp thư Chat <span id="admin-chat-badge" class="bg-rose-500 text-white text-[10px] px-1.5 rounded-full hidden">0</span></button>
+                    </div>
+
+                    <div id="admin-sec-products" class="admin-section grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-4 text-xs space-y-3 h-fit shadow-lg">
+                            <h3 class="font-bold text-white border-b border-gray-800 pb-2 text-sm text-purple-400" id="admin-p-title-form">Đăng Dịch Vụ Mới</h3>
+                            
+                            <div id="admin-product-select-wrapper" class="hidden">
+                                <label class="block text-amber-400 mb-1 font-semibold">Chọn sản phẩm bổ sung tài khoản:</label>
+                                <select id="admin-p-existing-id" onchange="handleProductFormModeChange()" class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 text-white focus:outline-none">
+                                    <option value="new">-- TẠO SẢN PHẨM MỚI --</option>
+                                </select>
+                            </div>
+
+                            <div id="admin-p-new-fields" class="space-y-3">
+                                <input type="text" id="admin-p-name" placeholder="Tên sản phẩm..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 text-white focus:outline-none">
+                                <div>
+                                    <label class="block text-gray-400 mb-1 font-semibold">Tải tệp ảnh Logo:</label>
+                                    <input type="file" id="admin-p-logo-file" accept="image/*" class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 text-xs text-slate-400 file:mr-3 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white cursor-pointer">
+                                    <input type="hidden" id="admin-p-logo-base64" value="">
+                                </div>
+                                <input type="text" id="admin-p-desc" placeholder="Mô tả / Lưu ý tài khoản..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 text-white focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-white mb-1 font-semibold">Giá tiền sản phẩm (đ):</label>
+                                <input type="number" id="admin-p-price" placeholder="Giá bán..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 text-white font-bold text-purple-400 focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-purple-400 mb-1 font-semibold">Tài khoản nạp thêm (Mỗi dòng 1 tài khoản):</label>
+                                <textarea id="admin-p-accounts" rows="4" placeholder="tk|mk hoặc mã kích hoạt..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-2 py-1.5 font-mono text-[11px] text-purple-300 focus:outline-none"></textarea>
+                            </div>
+                            <button onclick="adminSaveProduct()" id="btn-admin-save-product" class="w-full btn-purple-gradient text-white font-bold py-2 rounded text-xs uppercase shadow">Lưu sản phẩm</button>
+                            <button onclick="resetProductForm()" id="btn-admin-reset-product" class="hidden w-full bg-gray-700 text-white font-bold py-1.5 rounded text-[11px] mt-1.5">Hủy Chế Độ Sửa/Bổ Sung</button>
+                        </div>
+                        
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-4 lg:col-span-2 overflow-x-auto shadow-lg">
+                            <table class="w-full text-xs text-left">
+                                <thead>
+                                    <tr class="text-gray-400 border-b border-gray-800 font-semibold uppercase tracking-wider">
+                                        <th class="pb-2.5">Sản phẩm</th>
+                                        <th class="pb-2.5">Giá bán</th>
+                                        <th class="pb-2.5">Sẵn kho</th>
+                                        <th class="pb-2.5">Đã bán</th>
+                                        <th class="pb-2.5">Người Up</th>
+                                        <th class="pb-2.5 text-right">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-table-body" class="divide-y divide-gray-800/40"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="admin-sec-users" class="admin-section hidden bg-dark-card border border-gray-800 rounded-xl p-5 shadow-xl">
+                        <h3 class="font-bold text-purple-400 mb-4 text-sm uppercase tracking-wider">Danh Sách Thành Viên Hệ Thống</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead><tr class="border-b border-gray-800 text-gray-400 font-semibold uppercase tracking-wider"><th class="py-2">Tên Tài Khoản</th><th>Chức Vụ</th><th>Số Dư</th><th class="text-right">Hành Động Sửa Đổi</th></tr></thead>
+                                <tbody id="admin-user-table-body" class="divide-y divide-gray-800/40"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="admin-sec-coupons" class="admin-section hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-4 text-xs space-y-3 h-fit shadow-xl">
+                            <h3 class="font-bold text-white border-b border-gray-800 pb-2 text-sm text-purple-400">Tạo Mã Giảm Giá</h3>
+                            <input type="text" id="admin-c-code" placeholder="Mã giảm giá (Ví dụ: LUXURY)..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-3 py-2 uppercase font-bold text-white focus:outline-none">
+                            <input type="number" id="admin-c-discount" placeholder="Tỷ lệ giảm giá (%) từ 1 - 100..." class="w-full bg-[#0b0d19] border border-gray-800 rounded px-3 py-2 text-white focus:outline-none">
+                            <button onclick="adminAddCoupon()" id="btn-admin-add-coupon" class="w-full btn-purple-gradient text-white font-bold py-2 rounded text-xs uppercase shadow">Phát Hành Coupon</button>
+                        </div>
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-4 lg:col-span-2 overflow-x-auto shadow-xl">
+                            <table class="w-full text-xs text-left">
+                                <thead><tr class="text-gray-400 border-b border-gray-800 font-semibold uppercase tracking-wider"><th class="pb-2">Mã Coupon</th><th>Mức Giảm</th><th class="text-right">Xử lý</th></tr></thead>
+                                <tbody id="admin-coupon-table-body" class="divide-y divide-gray-800/40"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="admin-sec-telegram" class="admin-section hidden space-y-6">
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-5 shadow-xl">
+                            <h3 class="font-bold text-purple-400 text-xs uppercase tracking-wider mb-3 flex items-center gap-2"><i class="fa-solid fa-receipt"></i> Hộp Thư Chờ Duyệt Nạp Tiền MoMo</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs text-left">
+                                    <thead><tr class="border-b border-gray-800 text-gray-400 font-semibold uppercase tracking-wider"><th class="py-2">Mã Bill</th><th>Khách Hàng</th><th>Số Tiền Nạp</th><th>Nội Dung Chuyển</th><th>Ngày Tạo</th><th class="text-right">Hành Động</th></tr></thead>
+                                    <tbody id="admin-deposit-ticket-body" class="divide-y divide-gray-800/40"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="bg-dark-card border border-gray-800 rounded-xl p-5 shadow-xl space-y-4 text-xs">
+                            <h3 class="font-bold text-purple-400 text-sm uppercase tracking-wider border-b border-gray-800 pb-2"><i class="fa-solid fa-gears"></i> Cấu Hình Hạn Mức & API Thông Báo Telegram</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-gray-400 mb-1 font-semibold">Hạn mức nạp tối thiểu (đ):</label>
+                                    <input type="number" id="admin-sys-min-deposit" class="w-full bg-[#0b0d19] border border-gray-800 rounded px-3 py-2 text-white font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 mb-1 font-semibold">Telegram Bot Token API:</label>
+                                    <input type="text" id="tele-token" class="w-full bg-[#0b0d19] border border-gray-800 rounded px-3 py-2 text-white font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-gray-400 mb-1 font-semibold">Telegram Group/Chat ID:</label>
+                                    <input type="text" id="tele-chatid" class="w-full bg-[#0b0d19] border border-gray-800 rounded px-3 py-2 text-white font-mono">
+                                </div>
+                            </div>
+                            <button onclick="saveSystemConfigAll()" class="btn-purple-gradient text-white font-bold px-5 py-2.5 rounded-lg shadow uppercase text-xs">Lưu Toàn Bộ Cấu Hình Hệ Thống</button>
+                        </div>
+                    </div>
+
+                    <div id="admin-sec-chats" class="admin-section hidden grid grid-cols-12 gap-4">
+                        <div class="col-span-12 md:col-span-4 bg-dark-card border border-gray-800 rounded-xl p-3 h-[450px] overflow-y-auto space-y-1" id="admin-chat-users-list">
+                            <p class="text-gray-500 italic text-center p-4">Không có hội thoại nào gần đây...</p>
+                        </div>
+                        <div class="col-span-12 md:col-span-8 bg-dark-card border border-gray-800 rounded-xl p-4 flex flex-col h-[450px]">
+                            <h4 class="font-bold text-xs text-purple-400 mb-2 border-b border-gray-800 pb-1" id="admin-active-chat-user-title">Chọn khách hàng từ danh sách bên trái</h4>
+                            <div id="admin-chat-messages" class="flex-grow overflow-y-auto p-2 space-y-2 text-xs bg-[#0b0d19] rounded-xl border border-gray-800"></div>
+                            <div class="mt-2 flex gap-2">
+                                <input type="text" id="admin-chat-input" placeholder="Nhập câu trả lời cho khách..." class="flex-grow bg-[#0b0d19] border border-gray-800 rounded-xl px-3 text-xs text-white focus:outline-none">
+                                <button onclick="sendAdminChatMessage()" class="btn-purple-gradient text-white px-4 py-2 rounded-xl text-xs font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="customer-chat-container" class="hidden fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        <div id="customer-chat-window" class="hidden glass-panel rounded-2xl w-72 sm:w-80 h-96 flex flex-col shadow-2xl mb-3 overflow-hidden border border-purple-500/30">
+            <div class="btn-purple-gradient p-3 text-white flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="text-xs font-black tracking-wide">HỖ TRỢ TRỰC TUYẾN 24/7</span>
+                </div>
+                <button onclick="toggleCustomerChatWindow()" class="text-white hover:text-gray-200 text-sm"><i class="fa-solid fa-minus"></i></button>
+            </div>
+            <div id="customer-chat-messages" class="flex-grow overflow-y-auto p-3 space-y-2 text-xs bg-[#0a0c16]"></div>
+            <div class="p-2 border-t border-gray-800/80 bg-[#121424] flex gap-1.5">
+                <input type="text" id="customer-chat-input" placeholder="Nhập tin nhắn cần hỗ trợ..." class="flex-grow bg-[#0b0d19] border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500">
+                <button onclick="sendCustomerChatMessage()" class="btn-purple-gradient text-white px-3 rounded-xl text-xs font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+        <button onclick="toggleCustomerChatWindow()" class="w-12 h-12 btn-purple-gradient rounded-full flex items-center justify-center text-white text-lg shadow-2xl relative border border-white/10 hover:scale-105 transition">
+            <i class="fa-solid fa-comments"></i>
+            <span id="customer-chat-badge" class="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center hidden">1</span>
+        </button>
+    </div>
+
+    <script>
+        // 1. Cấu hình kết nối Firebase Realtime Database
+        const firebaseConfig = {
+            apiKey: "AIzaSyAn-3UVGjlyeteF31iSlWGjJPhrQcoEBMg",
+            authDomain: "ai22-b4a97.firebaseapp.com",
+            databaseURL: "https://ai22-b4a97-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ai22-b4a97",
+            storageBucket: "ai22-b4a97.firebasestorage.app",
+            messagingSenderId: "902726392514",
+            appId: "1:902726392514:web:d2ce311673faa93455395b"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // 2. Biến trạng thái và dữ liệu toàn cục
+        let products = [];
+        let usersDB = {};
+        let coupons = [];
+        let ordersHistory = [];
+        let depositTickets = [];
+        let chatData = {};
+        
+        let currentUser = JSON.parse(localStorage.getItem('sys_v9_current_user')) || null;
+        let minDepositLimit = 0;
+        let telegramConfig = { token: "", chatId: "" };
+        let currentCheckoutItem = null;
+        let activeTempDepositAmount = 0;
+        let activeAdminChatUser = null;
+        let currentAdminModeForProduct = "new"; // "new", "append", "edit"
+
+        // Hàm kiểm tra chuyển đổi dữ liệu Firebase Object/Array an toàn chống sập trang
+        function safeArray(val) {
+            if (!val) return [];
+            return Array.isArray(val) ? val : Object.values(val);
+        }
+
+        // 3. Hệ thống thông báo Toast tùy biến chuyên nghiệp
+        function showNotification(title, message, isSuccess = true) {
+            const toast = document.getElementById('custom-toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-msg');
+            
+            if (icon && msg && toast) {
+                icon.innerHTML = isSuccess ? '<i class="fa-solid fa-circle-check text-green-400"></i>' : '<i class="fa-solid fa-circle-exclamation text-rose-500"></i>';
+                msg.innerHTML = `<b class="text-purple-400">${title}:</b> ${message}`;
+                toast.style.borderColor = isSuccess ? "rgba(139, 92, 246, 0.5)" : "rgba(244, 63, 94, 0.5)";
+                
+                toast.classList.add('show');
+                setTimeout(() => { toast.classList.remove('show'); }, 3500);
+            }
+        }
+
+        function closeAnnouncementModal() {
+            document.getElementById('login-announcement-modal').classList.add('hidden');
+        }
+
+        // 4. Đồng bộ dữ liệu thời gian thực (Firebase Sync Engine)
+        function startFirebaseSync() {
+            // Đồng bộ cấu hình hệ thống
+            db.ref('shop_v9/systemConfig').on('value', (s) => {
+                const data = s.val() || {};
+                minDepositLimit = data.minDepositLimit || 0;
+                telegramConfig = data.teleConfig || { token: "", chatId: "" };
+                
+                const minNotice = document.getElementById('deposit-min-notice');
+                if (minNotice) minNotice.innerText = Number(minDepositLimit).toLocaleString();
+                
+                const sysMin = document.getElementById('admin-sys-min-deposit');
+                if (sysMin) sysMin.value = minDepositLimit;
+                
+                const teleToken = document.getElementById('tele-token');
+                if (teleToken) teleToken.value = telegramConfig.token || "";
+                
+                const teleChat = document.getElementById('tele-chatid');
+                if (teleChat) teleChat.value = telegramConfig.chatId || "";
+            });
+
+            // Đồng bộ Kho Sản phẩm
+            db.ref('shop_v9/products').on('value', (s) => {
+                products = safeArray(s.val());
+                renderProducts();
+                renderTopTrendingProducts();
+                updateAdminProductDropdown();
+                if(currentUser) renderAdminProductsTable();
+            });
+
+            // Đồng bộ Cơ sở dữ liệu thành viên
+            db.ref('shop_v9/usersDB').on('value', (s) => {
+                usersDB = s.val() || {};
+                if(currentUser && usersDB[currentUser.username]) {
+                    currentUser = { username: currentUser.username, ...usersDB[currentUser.username] };
+                    localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
+                    initSession();
+                }
+                if(currentUser) renderAdminUsersTable();
+            });
+
+            // Đồng bộ Coupons giảm giá
+            db.ref('shop_v9/coupons').on('value', (s) => {
+                coupons = safeArray(s.val());
+                if(currentUser) renderAdminCouponsTable();
+            });
+
+            // Đồng bộ Lịch sử đơn hàng
+            db.ref('shop_v9/ordersHistory').on('value', (s) => {
+                ordersHistory = safeArray(s.val());
+                renderOrdersHistoryTable();
+            });
+
+            // Đồng bộ Phiếu nạp tiền
+            db.ref('shop_v9/depositTickets').on('value', (s) => {
+                depositTickets = safeArray(s.val());
+                if(currentUser) renderAdminDepositTickets();
+            });
+
+            // Đồng bộ Hệ thống Chat Live
+            db.ref('shop_v9/chats').on('value', (s) => {
+                chatData = s.val() || {};
+                renderCustomerChatWindow();
+                if(currentUser) renderAdminChatPanel();
+            });
+        }
+
+        // 5. Điều phối hiển thị trang (Single Page Router)
+        function navigateTo(viewId) {
+            document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+            const targetView = document.getElementById(`view-${viewId}`);
+            if(targetView) targetView.classList.add('active');
+
+            const sidebar = document.getElementById('layout-sidebar');
+            const mainContentZone = document.getElementById('layout-main-content');
+
+            if(viewId === 'auth') {
+                if (sidebar) sidebar.classList.add('hidden');
+                if (mainContentZone) mainContentZone.className = "col-span-12";
+            } else {
+                if (sidebar) sidebar.classList.remove('hidden');
+                if (mainContentZone) mainContentZone.className = "col-span-12 lg:col-span-9";
+            }
+        }
+
+        function toggleAuthTab(tab) {
+            const isLogin = tab === 'login';
+            document.getElementById('tab-login-btn').className = isLogin ? "flex-1 font-bold text-center text-purple-400 border-b-2 border-purple-400 pb-2 transition text-sm" : "flex-1 font-bold text-center text-slate-500 pb-2 transition text-sm";
+            document.getElementById('tab-register-btn').className = !isLogin ? "flex-1 font-bold text-center text-purple-400 border-b-2 border-purple-400 pb-2 transition text-sm" : "flex-1 font-bold text-center text-slate-500 pb-2 transition text-sm";
+            document.getElementById('form-login').classList.toggle('hidden', !isLogin);
+            document.getElementById('form-register').classList.toggle('hidden', isLogin);
+        }
+
+        function switchAdminTab(secId) {
+            if (currentUser && currentUser.role === 'ctv' && ['users', 'coupons', 'telegram'].includes(secId)) {
+                showNotification("Từ chối", "Bạn không có quyền truy cập khu vực bảo mật này!", false);
+                return;
+            }
+
+            document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+            const targetSec = document.getElementById(`admin-sec-${secId}`);
+            if (targetSec) targetSec.classList.remove('hidden');
+
+            const tabs = { products: 'p', users: 'u', coupons: 'c', telegram: 't', chats: 'ch' };
+            Object.keys(tabs).forEach(k => {
+                const btn = document.getElementById(`admin-tab-${tabs[k]}-btn`);
+                if(btn) {
+                    if(k === secId) btn.className = "text-purple-400 border-b-2 border-purple-400 pb-2 px-3 transition";
+                    else btn.className = "text-slate-500 pb-2 px-3 transition";
+                }
+            });
+        }
+
+        // 6. Quản lý Phiên làm việc & Auth
+        function initSession() {
+            if(!currentUser) return;
+            document.getElementById('user-logged-info').classList.remove('hidden');
+            document.getElementById('display-username').innerHTML = `<i class="fa-regular fa-circle-user text-purple-400 mr-1"></i> ${currentUser.username.toUpperCase()}`;
+            document.getElementById('display-balance').innerText = Number(currentUser.balance).toLocaleString();
+            document.getElementById('display-role').innerText = currentUser.role.toUpperCase();
+            
+            const isAdminOrCtv = ['admin', 'ctv'].includes(currentUser.role);
+            document.getElementById('btn-admin-panel').classList.toggle('hidden', !isAdminOrCtv);
+            
+            const txtAdmin = document.getElementById('txt-admin-panel');
+            if (txtAdmin) txtAdmin.innerText = currentUser.role === 'admin' ? "Quản Trị Viên" : "Góc CTV";
+            
+            document.getElementById('customer-chat-container').classList.remove('hidden');
+
+            const isStrictAdmin = currentUser.role === 'admin';
+            if (document.getElementById('admin-tab-u-btn')) document.getElementById('admin-tab-u-btn').classList.toggle('hidden', !isStrictAdmin);
+            if (document.getElementById('admin-tab-c-btn')) document.getElementById('admin-tab-c-btn').classList.toggle('hidden', !isStrictAdmin);
+            if (document.getElementById('admin-tab-t-btn')) document.getElementById('admin-tab-t-btn').classList.toggle('hidden', !isStrictAdmin);
+        }
+
+        function handleRegister() {
+            const u = document.getElementById('reg-user').value.trim().toLowerCase();
+            const p = document.getElementById('reg-pass').value.trim();
+            if(!u || !p) { showNotification("Form lỗi", "Vui lòng nhập đầy đủ tài khoản & mật khẩu!", false); return; }
+            if(usersDB[u]) { showNotification("Trùng lặp", "Tên tài khoản này đã tồn tại trên hệ thống!", false); return; }
+            
+            usersDB[u] = { password: p, balance: 0, role: "user" };
+            db.ref('shop_v9/usersDB').set(usersDB).then(() => {
+                showNotification("Thành công", "Đăng ký thành công! Vui lòng chuyển sang Đăng nhập.");
+                toggleAuthTab('login');
+            });
+        }
+
+        function handleLogin() {
+            const u = document.getElementById('login-user').value.trim().toLowerCase();
+            const p = document.getElementById('login-pass').value.trim();
+            if(!u || !p) { showNotification("Form lỗi", "Vui lòng nhập đầy đủ thông tin!", false); return; }
+            if(!usersDB[u] || usersDB[u].password !== p) { showNotification("Từ chối", "Tài khoản hoặc mật khẩu không chính xác!", false); return; }
+            
+            currentUser = { username: u, ...usersDB[u] };
+            localStorage.setItem('sys_v9_current_user', JSON.stringify(currentUser));
+            initSession();
+            navigateTo('shop');
+            showNotification("Đăng nhập", "Chào mừng bạn đã trở lại hệ thống!");
+            document.getElementById('login-announcement-modal').classList.remove('hidden');
+        }
+
+        function logout() {
+            localStorage.removeItem('sys_v9_current_user');
+            currentUser = null;
+            document.getElementById('user-logged-info').classList.add('hidden');
+            document.getElementById('customer-chat-container').classList.add('hidden');
+            navigateTo('auth');
+        }
+
+        // 7. Kết xuất Cửa hàng & Xử lý đơn hàng
+        function renderProducts() {
+            const container = document.getElementById('product-container');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            if(products.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500 text-xs">Hiện tại chưa có sản phẩm nào được đăng bán!</div>';
+                return;
+            }
+
+            products.forEach(p => {
+                const stock = p.accounts ? safeArray(p.accounts).length : 0;
+                const logoHtml = p.logo ? `<img src="${p.logo}" class="w-12 h-12 object-cover rounded-xl border border-purple-500/20 shadow-md mb-2">` : `<div class="w-12 h-12 bg-purple-600/20 text-purple-400 rounded-xl flex items-center justify-center text-lg font-black mb-2 border border-purple-500/10"><i class="fa-solid fa-cube"></i></div>`;
+                
+                container.innerHTML += `
+                <div class="bg-dark-card border border-gray-800/80 rounded-2xl p-4 flex flex-col justify-between group hover:border-purple-500/30 transition shadow-lg relative overflow-hidden">
+                    <span class="absolute top-3 right-3 bg-[#16192e] text-[10px] font-bold px-2 py-0.5 rounded-md border border-gray-800 text-slate-300">Kho: ${stock}</span>
+                    <div class="mb-3">
+                        ${logoHtml}
+                        <h4 class="text-xs font-bold text-gray-100 line-clamp-1 group-hover:text-purple-400 transition">${p.name}</h4>
+                        <p class="text-[10px] text-gray-400 line-clamp-2 mt-1 font-medium leading-relaxed">${p.desc || 'Không có mô tả sản phẩm.'}</p>
+                        <p class="text-purple-400 font-extrabold text-sm mt-2">${Number(p.price).toLocaleString()}đ</p>
+                    </div>
+                    <button onclick="openCheckout(${p.id})" class="w-full btn-purple-gradient text-white py-2 rounded-lg text-xs font-bold shadow transition opacity-90 hover:opacity-100">Mua ngay</button>
+                </div>`;
+            });
+        }
+
+        function renderTopTrendingProducts() {
+            const trendingBox = document.getElementById('shop-top-trending');
+            if(!trendingBox) return;
+            trendingBox.innerHTML = '';
+            
+            const list = [...products].sort((a,b) => (b.soldCount || 0) - (a.soldCount || 0)).slice(0, 3);
+            if(list.length === 0) { trendingBox.innerHTML = '<p class="text-gray-500 italic text-[11px]">Chưa có số liệu thống kê.</p>'; return; }
+            
+            list.forEach((p, index) => {
+                trendingBox.innerHTML += `
+                <div class="flex justify-between items-center bg-[#0b0d19] border border-gray-800/60 p-2 rounded-xl w-full">
+                    <span class="font-black text-purple-500 w-4">#${index+1}</span>
+                    <span class="truncate font-semibold text-gray-300 flex-grow px-2 text-left">${p.name}</span>
+                    <span class="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-md font-bold whitespace-nowrap">Đã bán: ${p.soldCount || 0}</span>
+                </div>`;
+            });
+        }
+
+        function openCheckout(productId) {
+            if(!currentUser) { showNotification("Yêu cầu", "Vui lòng đăng nhập hệ thống để thực hiện mua hàng!", false); return; }
+            const p = products.find(x => x.id === productId);
+            if(!p) return;
+            currentCheckoutItem = p;
+            navigateTo('checkout');
+
+            const detailsBox = document.getElementById('checkout-details');
+            const stockLen = p.accounts ? safeArray(p.accounts).length : 0;
+            
+            detailsBox.innerHTML = `
+            <div class="bg-[#0b0d19] p-4 rounded-xl border border-gray-800 space-y-2">
+                <p class="font-bold text-white text-base">${p.name}</p>
+                <p class="text-xs text-gray-400">Đơn giá gốc: <span class="text-purple-400 font-bold">${Number(p.price).toLocaleString()}đ</span></p>
+                <p class="text-xs text-amber-400">Tồn kho hiện có: <span class="font-bold">${stockLen}</span> tài khoản</p>
+            </div>
+            <div class="space-y-2">
+                <label class="block text-gray-400 text-[11px] uppercase font-bold tracking-wider">Số lượng mua:</label>
+                <input type="number" id="checkout-qty" value="1" min="1" oninput="reCalculateCheckoutPrice()" class="w-full bg-[#0b0d19] border border-gray-800 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-purple-500">
+            </div>
+            <div class="space-y-2">
+                <label class="block text-gray-400 text-[11px] uppercase font-bold tracking-wider">Nhập mã giảm giá Coupon (Nếu có):</label>
+                <div class="flex gap-2">
+                    <input type="text" id="checkout-coupon" placeholder="Nhập mã..." class="flex-grow bg-[#0b0d19] border border-gray-800 rounded-xl px-3 text-xs uppercase font-bold text-white focus:outline-none">
+                    <button onclick="reCalculateCheckoutPrice()" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-xs font-semibold">Áp Dụng</button>
+                </div>
+            </div>
+            <div class="bg-[#16192e] border border-purple-500/10 p-4 rounded-xl flex justify-between items-center shadow-inner">
+                <div>
+                    <p class="text-xs text-gray-400">Tổng chi phí thanh toán:</p>
+                    <p class="text-xl font-black text-purple-400" id="checkout-final-price">${Number(p.price).toLocaleString()}đ</p>
+                </div>
+                <button onclick="executePayment()" class="btn-purple-gradient text-white font-bold px-6 py-3 rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-purple-500/20">Xác Nhận Thanh Toán</button>
+            </div>`;
+        }
+
+        function reCalculateCheckoutPrice() {
+            if(!currentCheckoutItem) return;
+            const qty = Math.max(1, parseInt(document.getElementById('checkout-qty').value) || 1);
+            let basePrice = currentCheckoutItem.price * qty;
+            
+            const code = document.getElementById('checkout-coupon').value.trim().toUpperCase();
+            const cp = coupons.find(c => c.code === code);
+            if(cp) {
+                basePrice -= (basePrice * cp.discount) / 100;
+            }
+            basePrice = Math.max(0, basePrice);
+            document.getElementById('checkout-final-price').innerText = Number(basePrice).toLocaleString() + "đ";
+        }
+
+        function executePayment() {
+            if(!currentUser || !currentCheckoutItem) return;
+            const qty = Math.max(1, parseInt(document.getElementById('checkout-qty').value) || 1);
+            
+            const p = products.find(x => x.id === currentCheckoutItem.id);
+            if (!p) return;
+            
+            const pAccounts = safeArray(p.accounts);
+            if(qty > pAccounts.length) { showNotification("Kho trống", "Số lượng tài khoản trong kho không đủ để đáp ứng đơn hàng!", false); return; }
+            
+            let finalPrice = p.price * qty;
+            const code = document.getElementById('checkout-coupon').value.trim().toUpperCase();
+            const cp = coupons.find(c => c.code === code);
+            if(cp) finalPrice -= (finalPrice * cp.discount) / 100;
+            finalPrice = Math.max(0, finalPrice);
+
+            if(currentUser.balance < finalPrice) { showNotification("Thiếu số dư", "Số dư ví tài khoản không đủ! Vui lòng nạp tiền thêm.", false); return; }
+            
+            const boughtAccounts = pAccounts.splice(0, qty);
+            p.accounts = pAccounts;
+            const itemCreator = p.creator || "siriusff23";
+
+            currentUser.balance -= finalPrice;
+            usersDB[currentUser.username].balance = currentUser.balance;
+
+            // Cơ chế chia sẻ doanh thu tự động cho người đăng sản phẩm
+            if(usersDB[itemCreator]) {
+                usersDB[itemCreator].balance = (usersDB[itemCreator].balance || 0) + finalPrice;
+            }
+
+            const oId = "ORD-" + Math.floor(100000 + Math.random() * 900000);
+            const newOrder = {
+                id: oId,
+                pName: p.name,
+                qty: qty,
+                total: finalPrice,
+                data: boughtAccounts.join(" \n "),
+                date: new Date().toLocaleString('vi-VN'),
+                buyer: currentUser.username
+            };
+
+            ordersHistory.unshift(newOrder);
+            p.soldCount = (p.soldCount || 0) + qty;
+
+            db.ref('shop_v9/products').set(products);
+            db.ref('shop_v9/usersDB').set(usersDB);
+            db.ref('shop_v9/ordersHistory').set(ordersHistory).then(() => {
+                showNotification("Thành công", `Đã mua thành công ${qty} tài khoản! Kiểm tra thông tin trong Lịch Sử.`);
+                sendTelegramNotification(`🛒 <b>ĐƠN HÀNG MỚI</b>\n• Khách hàng: ${currentUser.username}\n• Sản phẩm: ${p.name}\n• Số lượng: ${qty}\n• Doanh thu: ${finalPrice.toLocaleString()}đ\n• CTV phụ trách: ${itemCreator}`);
+                navigateTo('history');
+            });
+        }
+
+        function renderOrdersHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            
+            const myOrders = ordersHistory.filter(x => currentUser && x.buyer === currentUser.username);
+            if(myOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500 text-xs">Bạn chưa thực hiện giao dịch mua tài khoản nào!</td></tr>`;
+                return;
+            }
+
+            myOrders.forEach(o => {
+                tbody.innerHTML += `
+                <tr class="hover:bg-purple-600/5 text-gray-300 transition font-medium">
+                    <td class="py-3 px-2 font-mono text-purple-400 font-bold">${o.id}</td>
+                    <td class="py-3 px-2 text-white font-semibold">${o.pName}</td>
+                    <td class="py-3 px-2 font-bold text-center">${o.qty}</td>
+                    <td class="py-3 px-2 text-purple-300 font-bold">${Number(o.total).toLocaleString()}đ</td>
+                    <td class="py-3 px-2"><textarea readonly class="w-full bg-[#0b0d19] border border-gray-800 text-purple-300 font-mono p-1 rounded text-[11px] h-10 resize-none focus:outline-none select-all">${o.data}</textarea></td>
+                    <td class="py-3 px-2 text-right text-gray-400 font-mono">${o.date}</td>
+                </tr>`;
+            });
+        }
+
+        // 8. Tích hợp nạp tiền qua QR MoMo tự động điền thông tin VietQR
+        function generateDepositQR() {
+            if(!currentUser) return;
+            const amt = parseInt(document.getElementById('input-deposit').value) || 0;
+            if (amt < minDepositLimit) { showNotification("Sai giới hạn", `Số tiền nạp tối thiểu được cấu hình là ${minDepositLimit.toLocaleString()}đ!`, false); return; }
+            
+            activeTempDepositAmount = amt;
+            const memo = `NAP_${currentUser.username.toUpperCase()}_${Math.floor(1000 + Math.random() * 9000)}`;
+            const qrUrl = `https://img.vietqr.io/image/momo-PSP2610216100000229-compact.png?amount=${amt}&addInfo=${encodeURIComponent(memo)}`;
+
+            document.getElementById('qr-deposit-img').src = qrUrl;
+            document.getElementById('qr-deposit-comment').innerText = memo;
+            document.getElementById('qr-result-box').classList.remove('hidden');
+            showNotification("Tạo lệnh", "Vui lòng quét mã MoMo hiển thị bên dưới và giữ nguyên nội dung chuyển khoản!");
+        }
+
+        function submitDepositTicketToAdmin() {
+            if(!currentUser || activeTempDepositAmount <= 0) return;
+            const memo = document.getElementById('qr-deposit-comment').innerText;
+            const ticketId = "BILL-" + Math.floor(100000 + Math.random() * 900000);
+            
+            const newTicket = {
+                id: ticketId,
+                buyer: currentUser.username,
+                amount: activeTempDepositAmount,
+                comment: memo,
+                date: new Date().toLocaleString('vi-VN'),
+                status: "pending"
+            };
+
+            depositTickets.push(newTicket);
+            
+            db.ref('shop_v9/depositTickets').set(depositTickets).then(() => {
+                showNotification("Gửi yêu cầu", "Hóa đơn chuyển tiền đã được gửi. Chờ Admin kiểm duyệt số dư tự động.");
+                sendTelegramNotification(` <b>YÊU CẦU DUYỆT BILL NẠP</b>\n• Tài khoản: ${currentUser.username}\n• Số tiền nạp: ${activeTempDepositAmount.toLocaleString()}đ\n• Nội dung: ${memo}\n👉 Vui lòng vào Admin quản trị để xử lý.`);
+                document.getElementById('qr-result-box').classList.add('hidden');
+                document.getElementById('input-deposit').value = '';
+                activeTempDepositAmount = 0;
+            });
+        }
+
+        // 9. Khu Vực Quản Trị Hệ Thống (Admin & CTV)
+        function renderAdminProductsTable() {
+            const tbody = document.getElementById('admin-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            products.forEach((p, idx) => {
+                const stock = p.accounts ? safeArray(p.accounts).length : 0;
+                tbody.innerHTML += `
+                <tr class="hover:bg-[#1a1d36]/20 text-gray-300 border-b border-gray-800/40">
+                    <td class="py-2.5 font-bold text-white flex items-center gap-2">
+                        ${p.logo ? `<img src="${p.logo}" class="w-6 h-6 object-cover rounded-md">` : ''}
+                        <span>${p.name}</span>
+                    </td>
+                    <td class="text-purple-400 font-extrabold">${Number(p.price).toLocaleString()}đ</td>
+                    <td class="font-bold text-amber-400">${stock} cái</td>
+                    <td class="text-gray-400">${p.soldCount || 0}</td>
+                    <td class="text-slate-400 uppercase font-bold text-[10px]">${p.creator || 'admin'}</td>
+                    <td class="text-right space-x-1 whitespace-nowrap">
+                        <button onclick="loadProductIntoForm(${idx})" class="bg-purple-600/20 text-purple-300 border border-purple-500/20 hover:bg-purple-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition">Sửa/Bổ sung</button>
+                        <button onclick="adminDeleteProduct(${p.id})" class="bg-rose-600/20 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function updateAdminProductDropdown() {
+            const select = document.getElementById('admin-p-existing-id');
+            if(!select) return;
+            select.innerHTML = '<option value="new">-- TẠO SẢN PHẨM MỚI --</option>';
+            products.forEach(p => {
+                if (currentUser && currentUser.role === 'ctv' && p.creator !== currentUser.username) {
+                    return; 
+                }
+                const stockLen = p.accounts ? safeArray(p.accounts).length : 0;
+                select.innerHTML += `<option value="${p.id}">Bổ sung: ${p.name} (Kho: ${stockLen})</option>`;
+            });
+        }
+
+        function handleProductFormModeChange() {
+            const val = document.getElementById('admin-p-existing-id').value;
+            const newFields = document.getElementById('admin-p-new-fields');
+            if(val === 'new') {
+                currentAdminModeForProduct = "new";
+                document.getElementById('admin-p-title-form').innerText = "Đăng Dịch Vụ Mới";
+                if (newFields) newFields.classList.remove('hidden');
+            } else {
+                currentAdminModeForProduct = "append";
+                document.getElementById('admin-p-title-form').innerText = "Nạp Thêm Tài Khoản Vào Kho";
+                if (newFields) newFields.classList.add('hidden');
+            }
+        }
+
+        function loadProductIntoForm(index) {
+            const p = products[index];
+            if(currentUser && currentUser.role === 'ctv' && p.creator !== currentUser.username) {
+                showNotification("Từ chối quyền", "Bạn không có quyền chỉnh sửa sản phẩm của QTV hoặc thành viên khác!", false);
+                return;
+            }
+            document.getElementById('admin-product-select-wrapper').classList.remove('hidden');
+            document.getElementById('admin-p-existing-id').value = p.id;
+            document.getElementById('admin-p-name').value = p.name;
+            document.getElementById('admin-p-desc').value = p.desc || '';
+            document.getElementById('admin-p-price').value = p.price;
+            document.getElementById('admin-p-logo-base64').value = p.logo || '';
+            document.getElementById('btn-admin-reset-product').classList.remove('hidden');
+            handleProductFormModeChange();
+            currentAdminModeForProduct = "edit";
+            document.getElementById('admin-p-title-form').innerText = `Chỉnh Sửa Dịch Vụ [ID: ${p.id}]`;
+            document.getElementById('admin-p-new-fields').classList.remove('hidden');
+        }
+
+        function resetProductForm() {
+            document.getElementById('admin-product-select-wrapper').classList.add('hidden');
+            document.getElementById('admin-p-existing-id').value = "new";
+            document.getElementById('admin-p-name').value = '';
+            document.getElementById('admin-p-desc').value = '';
+            document.getElementById('admin-p-price').value = '';
+            document.getElementById('admin-p-logo-base64').value = '';
+            document.getElementById('admin-p-accounts').value = '';
+            document.getElementById('btn-admin-reset-product').classList.add('hidden');
+            handleProductFormModeChange();
+        }
+
+        function adminSaveProduct() {
+            const mode = currentAdminModeForProduct;
+            const rawAcc = document.getElementById('admin-p-accounts').value.trim();
+            const newAccs = rawAcc ? rawAcc.split('\n').map(x=>x.trim()).filter(x=>x.length>0) : [];
+
+            if(mode === 'new') {
+                const name = document.getElementById('admin-p-name').value.trim();
+                const desc = document.getElementById('admin-p-desc').value.trim();
+                const price = parseInt(document.getElementById('admin-p-price').value) || 0;
+                const logo = document.getElementById('admin-p-logo-base64').value;
+
+                if(!name || price <= 0) { showNotification("Form lỗi", "Vui lòng nhập tên và giá bán hợp lệ!", false); return; }
+                
+                const newP = {
+                    id: Date.now(),
+                    name: name,
+                    desc: desc,
+                    price: price,
+                    logo: logo,
+                    accounts: newAccs,
+                    soldCount: 0,
+                    creator: currentUser.username
+                };
+                products.push(newP);
+            } else if(mode === 'append' || mode === 'edit') {
+                const pId = parseInt(document.getElementById('admin-p-existing-id').value);
+                const p = products.find(x => x.id === pId);
+                if(!p) return;
+
+                if(currentUser && currentUser.role === 'ctv' && p.creator !== currentUser.username) {
+                    showNotification("Từ chối quyền", "Hành động bất hợp pháp! Bạn không sở hữu sản phẩm này.", false);
+                    return;
+                }
+
+                if(mode === 'edit') {
+                    p.name = document.getElementById('admin-p-name').value.trim();
+                    p.desc = document.getElementById('admin-p-desc').value.trim();
+                    p.price = parseInt(document.getElementById('admin-p-price').value) || 0;
+                    p.logo = document.getElementById('admin-p-logo-base64').value || p.logo;
+                }
+                if(newAccs.length > 0) {
+                    p.accounts = safeArray(p.accounts).concat(newAccs);
+                }
+            }
+
+            db.ref('shop_v9/products').set(products).then(() => {
+                showNotification("Thành công", "Đã cập nhật dữ liệu kho sản phẩm thành công!");
+                resetProductForm();
+            });
+        }
+
+        function adminDeleteProduct(id) {
+            const target = products.find(x => x.id === id);
+            if (!target) return;
+
+            if(currentUser && currentUser.role === 'ctv' && target.creator !== currentUser.username) {
+                showNotification("Bảo mật", "Bạn không có quyền xóa sản phẩm do QTV khác đăng lên!", false); 
+                return;
+            }
+
+            if(!confirm(`Xác nhận xóa vĩnh viễn sản phẩm [ ${target.name} ] khỏi cơ sở dữ liệu?`)) return;
+            
+            products = products.filter(x => x.id !== id);
+            db.ref('shop_v9/products').set(products).then(() => {
+                showNotification("Thành công", "Đã gỡ bỏ sản phẩm hoàn tất!");
+            });
+        }
+
+        function renderAdminUsersTable() {
+            const tbody = document.getElementById('admin-user-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            Object.keys(usersDB).forEach(u => {
+                const data = usersDB[u];
+                const isSupreme = u === 'admin' || u === 'siriusff23';
+                tbody.innerHTML += `
+                <tr class="hover:bg-[#1a1d36]/20 text-gray-300 font-medium">
+                    <td class="py-2 text-white font-bold"><i class="fa-regular fa-user text-slate-500 mr-1"></i> ${u.toUpperCase()}</td>
+                    <td><span class="px-2 py-0.5 rounded text-[10px] font-bold ${data.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : data.role === 'ctv' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20':'bg-gray-800 text-gray-400'}">${data.role.toUpperCase()}</span></td>
+                    <td class="text-green-400 font-extrabold">${Number(data.balance).toLocaleString()}đ</td>
+                    <td class="text-right space-x-1 whitespace-nowrap">
+                        <button onclick="adminAdjustUserBalance('${u}')" class="bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-slate-900 px-2 py-1 rounded text-[11px] font-bold transition"><i class="fa-solid fa-money-bill-transfer"></i> ± Tiền</button>
+                        ${ !isSupreme ? `<button onclick="adminToggleUserRole('${u}')" class="bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white px-2 py-1 rounded text-[11px] font-bold transition"><i class="fa-solid fa-user-tag"></i> Đổi Quyền</button>` : `<span class="text-[10px] text-gray-600 font-medium"><i class="fa-solid fa-shield text-gray-700"></i> Tối cao</span>` }
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function adminAdjustUserBalance(username) {
+            if(currentUser.role !== 'admin') return;
+            const amtStr = prompt(`Nhập số tiền muốn điều chỉnh cho [ ${username.toUpperCase()} ] (Ví dụ: 50000 để cộng, -20000 để trừ số dư):`, "0");
+            if(amtStr === null) return;
+            const amt = parseInt(amtStr);
+            if(isNaN(amt)) { alert("Số tiền nhập vào không hợp lệ!"); return; }
+
+            usersDB[username].balance = Math.max(0, (usersDB[username].balance || 0) + amt);
+            db.ref('shop_v9/usersDB').set(usersDB).then(() => {
+                showNotification("Cập nhật ví", `Đã điều chỉnh tài khoản ${username.toUpperCase()} số tiền ${amt.toLocaleString()}đ.`);
+                sendTelegramNotification(`🔧 <b>BIẾN ĐỘNG CÂN BẰNG VÍ</b>\n• Tài khoản: ${username}\n• Biến động: ${amt >= 0 ? '+' : ''}${amt.toLocaleString()}đ\n• Thực hiện bởi Admin hệ thống.`);
+            });
+        }
+
+        function adminToggleUserRole(username) {
+            if(currentUser.role !== 'admin') return;
+            const currentRole = usersDB[username].role || "user";
+            const nextRole = currentRole === 'user' ? 'ctv' : currentRole === 'ctv' ? 'admin' : 'user';
+            
+            if(!confirm(`Xác nhận chuyển quyền hạn của ${username.toUpperCase()} sang [${nextRole.toUpperCase()}]?`)) return;
+            usersDB[username].role = nextRole;
+            db.ref('shop_v9/usersDB').set(usersDB);
+        }
+
+        function renderAdminCouponsTable() {
+            const tbody = document.getElementById('admin-coupon-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            
+            if(coupons.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-3 text-gray-500 text-xs">Chưa có mã khuyến mãi giảm giá nào được tạo!</td></tr>`;
+                return;
+            }
+
+            coupons.forEach((c) => {
+                tbody.innerHTML += `
+                <tr class="hover:bg-[#1a1d36]/20 text-gray-300 font-medium">
+                    <td class="py-2 text-purple-400 font-black tracking-widest uppercase">${c.code}</td>
+                    <td class="font-bold text-white">Giảm ${c.discount}%</td>
+                    <td class="text-right"><button onclick="adminDeleteCoupon('${c.code}')" class="text-rose-400 hover:text-rose-500 font-semibold"><i class="fa-solid fa-trash-can"></i> Hủy bỏ</button></td>
+                </tr>`;
+            });
+        }
+
+        function adminAddCoupon() {
+            const code = document.getElementById('admin-c-code').value.trim().toUpperCase();
+            const discount = parseInt(document.getElementById('admin-c-discount').value) || 0;
+
+            if(!code || discount <= 0 || discount > 100) { showNotification("Lỗi form", "Tỷ lệ chiết khấu giảm giá từ 1 đến 100%!", false); return; }
+            if(coupons.some(x => x.code === code)) { showNotification("Trùng lặp", "Mã giảm giá này đã được phát hành trên sàn trước đó!", false); return; }
+
+            coupons.push({ code: code, discount: discount });
+            db.ref('shop_v9/coupons').set(coupons).then(() => {
+                showNotification("Thành công", "Đã phát hành coupon khuyến mãi mới thành công!");
+                document.getElementById('admin-c-code').value = '';
+                document.getElementById('admin-c-discount').value = '';
+            });
+        }
+
+        // Fix lỗi Index Shifting: Xóa Coupon dựa trên Code cố định tránh xóa nhầm dữ liệu
+        function adminDeleteCoupon(code) {
+            coupons = coupons.filter(x => x.code !== code);
+            db.ref('shop_v9/coupons').set(coupons).then(() => {
+                showNotification("Đã gỡ", "Đã xóa mã ưu đãi giảm giá khỏi sàn.");
+            });
+        }
+
+        function renderAdminDepositTickets() {
+            const tbody = document.getElementById('admin-deposit-ticket-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const pendingOnes = depositTickets.filter(t => t.status === 'pending');
+            if(pendingOnes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500 text-xs">Không có yêu cầu nạp tiền nào đang chờ phê duyệt!</td></tr>`;
+                return;
+            }
+
+            pendingOnes.forEach((t) => {
+                tbody.innerHTML += `
+                <tr class="hover:bg-[#1a1d36]/20 text-gray-300 font-medium border-b border-gray-800/20">
+                    <td class="py-2 font-mono text-amber-400 font-bold">${t.id}</td>
+                    <td class="font-bold text-white">${t.buyer}</td>
+                    <td class="text-purple-400 font-black">${Number(t.amount).toLocaleString()}đ</td>
+                    <td class="font-mono text-xs select-all text-purple-300 bg-purple-900/10 px-2 py-0.5 rounded border border-purple-500/10">${t.comment}</td>
+                    <td class="text-gray-500 font-mono text-[11px]">${t.date}</td>
+                    <td class="text-right space-x-1 whitespace-nowrap">
+                        <button onclick="adminResolveDepositTicket('${t.id}', true)" class="bg-green-600/20 text-green-400 border border-green-500/20 hover:bg-green-600 hover:text-slate-900 px-2 py-0.5 rounded text-[11px] font-bold transition">Duyệt nạp</button>
+                        <button onclick="adminResolveDepositTicket('${t.id}', false)" class="bg-rose-600/20 text-rose-400 border border-rose-500/20 hover:bg-rose-600 px-2 py-0.5 rounded text-[11px] font-bold transition">Hủy bỏ</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        // Fix lỗi Index Shifting: Duyệt Ticket nạp dựa trên ID duy nhất
+        function adminResolveDepositTicket(ticketId, isApproved) {
+            if(currentUser.role !== 'admin') return;
+            const tkIdx = depositTickets.findIndex(x => x.id === ticketId);
+            if(tkIdx === -1) { showNotification("Lỗi", "Đơn nạp tiền không tồn tại hoặc đã được xử lý!", false); return; }
+            
+            const ticket = depositTickets[tkIdx];
+            if(isApproved) {
+                if(usersDB[ticket.buyer]) {
+                    usersDB[ticket.buyer].balance = (usersDB[ticket.buyer].balance || 0) + ticket.amount;
+                } else {
+                    showNotification("Thất bại", "Thành viên thụ hưởng đã bị gỡ bỏ khỏi hệ thống!", false);
+                    return;
+                }
+                ticket.status = "approved";
+                showNotification("Thành công", `Đã phê duyệt cộng ${ticket.amount.toLocaleString()}đ vào ví của ${ticket.buyer.toUpperCase()}`);
+                sendTelegramNotification(`✅ <b>DUYỆT NẠP THÀNH CÔNG</b>\n• Thành viên: ${ticket.buyer}\n• Số tiền thực nạp: ${ticket.amount.toLocaleString()}đ\n• Lệnh hoàn thành trực tuyến.`);
+                depositTickets.splice(tkIdx, 1); // Gỡ khỏi hàng chờ duyệt
+            } else {
+                ticket.status = "rejected";
+                showNotification("Đã hủy", `Đã từ chối phiếu khai báo nạp tiền của ${ticket.buyer.toUpperCase()}`);
+                depositTickets.splice(tkIdx, 1);
+            }
+
+            db.ref('shop_v9/usersDB').set(usersDB);
+            db.ref('shop_v9/depositTickets').set(depositTickets);
+        }
+
+        function saveSystemConfigAll() {
+            const newMinInput = parseInt(document.getElementById('admin-sys-min-deposit').value);
+            if (isNaN(newMinInput) || newMinInput < 0) { showNotification("Lỗi", "Hạn mức nạp tiền tối thiểu không hợp lệ!", false); return; }
+            
+            const tokenInput = document.getElementById('tele-token').value.trim();
+            const chatIdInput = document.getElementById('tele-chatid').value.trim();
+
+            db.ref('shop_v9/systemConfig').set({
+                minDepositLimit: newMinInput,
+                teleConfig: { token: tokenInput, chatId: chatIdInput }
+            }).then(() => {
+                showNotification("Hệ thống", "Đã cập nhật toàn bộ cấu hình hệ thống & Telegram Bot thành công!", true);
+            });
+        }
+
+        // 10. Kênh Hỗ Trợ Khách Hàng Trực Tuyến Live Chat (Realtime Chat Engine)
+        function toggleCustomerChatWindow() {
+            const win = document.getElementById('customer-chat-window');
+            if (win) {
+                win.classList.toggle('hidden');
+                if(!win.classList.contains('hidden')) {
+                    document.getElementById('customer-chat-badge').classList.add('hidden');
+                }
+            }
+        }
+
+        function renderCustomerChatWindow() {
+            if(!currentUser) return;
+            const box = document.getElementById('customer-chat-messages');
+            if(!box) return;
+            
+            const myRoom = chatData[currentUser.username] || {};
+            box.innerHTML = '';
+
+            // Biểu mẫu tin nhắn hệ thống mặc định chào mừng khách
+            box.innerHTML = `
+            <div class="flex flex-col items-start space-y-0.5 max-w-[85%] w-full">
+                <p class="text-[9px] text-purple-400 font-bold uppercase">Hệ thống auto</p>
+                <div class="bg-[#1a1d36] border border-gray-800 text-white rounded-2xl rounded-tl-none p-2.5 font-medium leading-relaxed shadow-sm">
+                    Xin chào <b>${currentUser.username.toUpperCase()}</b>! Hãy gửi thắc mắc của bạn tại đây, QTV/Admin sẽ tiếp nhận phản hồi tức thì nhé!
+                </div>
+            </div>`;
+
+            if(myRoom.messages) {
+                let hasUnread = false;
+                safeArray(myRoom.messages).forEach(m => {
+                    const isMe = m.sender === currentUser.username;
+                    if(!isMe && m.unread) hasUnread = true;
+
+                    box.innerHTML += `
+                    <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-0.5 w-full">
+                        <p class="text-[9px] ${isMe ? 'text-gray-500' : 'text-purple-400'} font-bold uppercase">${isMe ? 'Bạn' : 'Quản trị viên'}</p>
+                        <div class="${isMe ? 'btn-purple-gradient text-white rounded-br-none' : 'bg-[#1e223f] text-white rounded-tl-none'} border border-white/5 max-w-[85%] p-2.5 rounded-2xl font-medium leading-normal shadow-sm break-words">
+                            ${m.text}
+                        </div>
+                    </div>`;
+                });
+                
+                if(hasUnread && document.getElementById('customer-chat-window').classList.contains('hidden')) {
+                    const cBadge = document.getElementById('customer-chat-badge');
+                    if (cBadge) {
+                        cBadge.classList.remove('hidden');
+                        cBadge.innerText = "1";
+                    }
+                }
+            }
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function sendCustomerChatMessage() {
+            const inp = document.getElementById('customer-chat-input');
+            const txt = inp.value.trim();
+            if(!txt) return;
+
+            let myRoom = chatData[currentUser.username] || { user: currentUser.username, messages: [], lastUpdate: Date.now() };
+            if(!myRoom.messages) myRoom.messages = [];
+            
+            myRoom.messages.push({ sender: currentUser.username, text: txt, unread: true });
+            myRoom.lastUpdate = Date.now();
+
+            db.ref(`shop_v9/chats/${currentUser.username}`).set(myRoom).then(() => {
+                inp.value = '';
+                sendTelegramNotification(`💬 <b>TIN NHẮN TRỰC TUYẾN MỚI</b>\n• Khách hàng: ${currentUser.username}\n• Nội dung: ${txt}\n👉 Vui lòng vào Chat Panel Admin để trả lời.`);
+            });
+        }
+
+        function renderAdminChatPanel() {
+            const userListContainer = document.getElementById('admin-chat-users-list');
+            if(!userListContainer) return;
+            userListContainer.innerHTML = '';
+
+            const rooms = Object.keys(chatData).map(k => chatData[k]).sort((a,b) => b.lastUpdate - a.lastUpdate);
+            let totalUnreadRooms = 0;
+
+            if(rooms.length === 0) {
+                userListContainer.innerHTML = '<p class="text-gray-500 italic text-center p-4">Không có cuộc trò chuyện nào gần đây...</p>';
+                return;
+            }
+
+            rooms.forEach(r => {
+                const msgs = safeArray(r.messages);
+                const lastM = msgs[msgs.length - 1] || { text: 'Trống' };
+                const isUnread = msgs.some(m => m.sender !== currentUser.username && m.unread);
+                if(isUnread) totalUnreadRooms++;
+
+                const isActive = activeAdminChatUser === r.user;
+                userListContainer.innerHTML += `
+                <div onclick="adminSelectChatUser('${r.user}')" class="p-2.5 rounded-xl cursor-pointer transition flex justify-between items-center w-full mb-1 ${isActive ? 'bg-purple-600/20 border border-purple-500/40 text-white' : 'bg-[#0b0d19] border border-gray-800/60 hover:bg-[#15182d] text-gray-300'}">
+                    <div class="truncate flex-grow pr-2 text-left">
+                        <p class="font-bold text-white text-xs flex items-center gap-1.5">${r.user.toUpperCase()} ${isUnread ? '<span class="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>' : ''}</p>
+                        <p class="text-[10px] text-gray-400 truncate mt-0.5">${lastM.text}</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-600"></i>
+                </div>`;
+            });
+
+            const aBadge = document.getElementById('admin-chat-badge');
+            if(aBadge) {
+                aBadge.classList.toggle('hidden', totalUnreadRooms === 0);
+                aBadge.innerText = totalUnreadRooms;
+            }
+
+            // Kết xuất hộp tin nhắn của người dùng đang được Admin click chọn chat
+            const msgBox = document.getElementById('admin-chat-messages');
+            if(activeAdminChatUser && chatData[activeAdminChatUser] && msgBox) {
+                document.getElementById('admin-active-chat-user-title').innerText = `Đang chat với khách hàng: [ ${activeAdminChatUser.toUpperCase()} ]`;
+                msgBox.innerHTML = '';
+                
+                const msgs = safeArray(chatData[activeAdminChatUser].messages);
+                msgs.forEach(m => {
+                    const isClient = m.sender === activeAdminChatUser;
+                    msgBox.innerHTML += `
+                    <div class="flex flex-col ${isClient ? 'items-start' : 'items-end'} space-y-0.5 w-full">
+                        <span class="text-[9px] text-gray-500 font-bold uppercase">${isClient ? 'Khách hàng' : 'Bạn'}</span>
+                        <div class="${isClient ? 'bg-[#1e223f] text-white' : 'btn-purple-gradient text-white'} px-3 py-2 rounded-xl max-w-[85%] border border-white/5 break-words">
+                            ${m.text}
+                        </div>
+                    </div>`;
+                });
+                msgBox.scrollTop = msgBox.scrollHeight;
+            }
+        }
+
+        function adminSelectChatUser(username) {
+            activeAdminChatUser = username;
+            if(chatData[username] && chatData[username].messages) {
+                let msgs = safeArray(chatData[username].messages);
+                msgs.forEach(m => {
+                    if(m.sender === username) m.unread = false;
+                });
+                chatData[username].messages = msgs;
+                db.ref(`shop_v9/chats/${username}`).set(chatData[username]);
+            }
+            renderAdminChatPanel();
+        }
+
+        function sendAdminChatMessage() {
+            if(!activeAdminChatUser) return;
+            const inp = document.getElementById('admin-chat-input');
+            const txt = inp.value.trim();
+            if(!txt) return;
+
+            let room = chatData[activeAdminChatUser];
+            if(!room.messages) room.messages = [];
+            
+            room.messages.push({ sender: currentUser.username, text: txt, unread: true });
+            room.lastUpdate = Date.now();
+
+            db.ref(`shop_v9/chats/${activeAdminChatUser}`).set(room).then(() => {
+                inp.value = '';
+            });
+        }
+
+        // 11. Hệ thống API điều hướng gửi dữ liệu báo cáo Telegram Bot
+        function sendTelegramNotification(htmlText) {
+            if (!telegramConfig.token || !telegramConfig.chatId) return;
+            const url = `https://api.telegram.org/bot${telegramConfig.token}/sendMessage`;
+            
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: telegramConfig.chatId,
+                    text: htmlText,
+                    parse_mode: "HTML"
+                })
+            }).catch(e => console.error("Lỗi gửi thông báo Telegram Bot API: ", e));
+        }
+
+        // 12. LOGO FILE CONVERTER SANG BASE64 TRỰC TIẾP TRÊN TRÌNH DUYỆT
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileIn = document.getElementById('admin-p-logo-file');
+            if (fileIn) {
+                fileIn.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        if (file.size > 1.2 * 1024 * 1024) { 
+                            showNotification("Dung lượng lớn", "Vui lòng chọn ảnh nhẹ dưới 1.2MB để tối ưu đám mây!", false); 
+                            this.value = ""; 
+                            return; 
+                        }
+                        const r = new FileReader();
+                        r.onload = function(evt) { 
+                            document.getElementById('admin-p-logo-base64').value = evt.target.result; 
+                        };
+                        r.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+
+        // 13. Khởi động ứng dụng (App Loader)
+        window.onload = function() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand(); 
+            }
+            startFirebaseSync();
+            if(currentUser) {
+                initSession();
+                navigateTo('shop');
+            } else {
+                navigateTo('auth');
+            }
+        };
+    </script>
+</body>
+</html>
